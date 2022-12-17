@@ -177,19 +177,23 @@ void Widget::add_child(Widget * widget) {
 }
 
 void Widget::remove_child(const Widget *widget) {
-    size_t child_count = m_children.size();
-    m_children.erase(std::remove(m_children.begin(), m_children.end(), widget),
-                     m_children.end());
-    if (m_children.size() == child_count)
-        throw std::runtime_error("Widget::remove_child(): widget not found!");
-    widget->dec_ref();
+    removeChildHelper(std::find(m_children.begin(), m_children.end(), widget));
 }
 
 void Widget::remove_child_at(int index) {
-    if (index < 0 || index >= (int) m_children.size())
-        throw std::runtime_error("Widget::remove_child_at(): out of bounds!");
-    Widget *widget = m_children[index];
-    m_children.erase(m_children.begin() + index);
+    assert(index >= 0);
+    assert(index < child_count());
+    removeChildHelper(m_children.begin() + index);
+}
+
+void Widget::removeChildHelper(const std::vector<Widget *>::iterator& child_it) {
+    if (child_it == m_children.end())
+        return;
+    Widget *widget = *child_it;
+
+    screen()->dispose_widget(widget);
+    m_children.erase(child_it);
+
     widget->dec_ref();
 }
 
@@ -216,7 +220,8 @@ Screen *Widget::screen() {
     Widget *widget = this;
     while (true) {
         if (!widget)
-            return nullptr;
+            throw std::runtime_error(
+                "Widget:internal error (could not find parent screen)");
         Screen *screen = dynamic_cast<Screen *>(widget);
         if (screen)
             return screen;
