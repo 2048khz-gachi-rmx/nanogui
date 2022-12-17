@@ -244,6 +244,8 @@ extern NANOGUI_EXPORT void shutdown();
  */
 extern NANOGUI_EXPORT void mainloop(float refresh = -1.f);
 
+extern NANOGUI_EXPORT bool runloop(bool from_mainloop = false, bool force_redraw = false);
+
 /// Request the application main loop to terminate (e.g. if you detached mainloop).
 extern NANOGUI_EXPORT void leave();
 

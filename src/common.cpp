@@ -83,50 +83,61 @@ static float emscripten_refresh = 0;
 std::mutex m_async_mutex;
 std::vector<std::function<void()>> m_async_functions;
 
+bool runloop(bool from_mainloop, bool force_redraw) {
+	int num_screens = 0;
+
+	#if defined(EMSCRIPTEN)
+        double emscripten_now = glfwGetTime();
+        bool emscripten_redraw = false;
+        if (float((emscripten_now - emscripten_last) * 1000) > emscripten_refresh) {
+            emscripten_redraw = true;
+            emscripten_last = emscripten_now;
+        }
+    #endif
+
+    /* Run async functions */ {
+        std::lock_guard<std::mutex> guard(m_async_mutex);
+        for (auto &f : m_async_functions)
+            f();
+        m_async_functions.clear();
+    }
+
+    for (auto kv : __nanogui_screens) {
+        Screen *screen = kv.second;
+        if (!screen->visible()) {
+            continue;
+        } else if (glfwWindowShouldClose(screen->glfw_window())) {
+            screen->set_visible(false);
+            continue;
+        }
+        #if defined(EMSCRIPTEN)
+            if (emscripten_redraw || screen->tooltip_fade_in_progress() || force_redraw)
+                screen->redraw();
+        #else
+			if (force_redraw)
+				screen->redraw();
+		#endif
+
+        screen->draw_all();
+        num_screens++;
+    }
+
+    if (num_screens == 0) {
+        /* Give up if there was nothing to draw */
+        if (from_mainloop)
+			mainloop_active = false;
+        return false;
+    }
+
+	return true;
+}
+
 void mainloop(float refresh) {
     if (mainloop_active)
         throw std::runtime_error("Main loop is already running!");
 
     auto mainloop_iteration = []() {
-        int num_screens = 0;
-
-        #if defined(EMSCRIPTEN)
-            double emscripten_now = glfwGetTime();
-            bool emscripten_redraw = false;
-            if (float((emscripten_now - emscripten_last) * 1000) > emscripten_refresh) {
-                emscripten_redraw = true;
-                emscripten_last = emscripten_now;
-            }
-        #endif
-
-        /* Run async functions */ {
-            std::lock_guard<std::mutex> guard(m_async_mutex);
-            for (auto &f : m_async_functions)
-                f();
-            m_async_functions.clear();
-        }
-
-        for (auto kv : __nanogui_screens) {
-            Screen *screen = kv.second;
-            if (!screen->visible()) {
-                continue;
-            } else if (glfwWindowShouldClose(screen->glfw_window())) {
-                screen->set_visible(false);
-                continue;
-            }
-            #if defined(EMSCRIPTEN)
-                if (emscripten_redraw || screen->tooltip_fade_in_progress())
-                    screen->redraw();
-            #endif
-            screen->draw_all();
-            num_screens++;
-        }
-
-        if (num_screens == 0) {
-            /* Give up if there was nothing to draw */
-            mainloop_active = false;
-            return;
-        }
+		runloop(true);
 
         #if !defined(EMSCRIPTEN)
             /* Wait for mouse/keyboard or empty refresh events */
