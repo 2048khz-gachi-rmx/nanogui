@@ -926,8 +926,6 @@ void Screen::dispose_widget(Widget *widget) {
 
     for (auto child : widget->children())
         dispose_widget(child);
-
-    remove_child(widget);
 }
 
 void Screen::center_window(Window *window) {
