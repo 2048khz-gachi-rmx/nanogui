@@ -170,7 +170,7 @@ public:
     const Window *window() const;
 
     /// Walk up the hierarchy and return the parent screen
-    Screen *screen();
+    Screen *screen(bool require = true);
     /// Walk up the hierarchy and return the parent screen (const version)
     const Screen *screen() const;
 

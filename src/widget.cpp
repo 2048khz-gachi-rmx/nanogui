@@ -187,11 +187,16 @@ void Widget::remove_child_at(int index) {
 }
 
 void Widget::removeChildHelper(const std::vector<Widget *>::iterator& child_it) {
-    if (child_it == m_children.end())
+    if (child_it == m_children.end()) {
         return;
-    Widget *widget = *child_it;
+	}
 
-    screen()->dispose_widget(widget);
+    Widget *widget = *child_it;
+	Screen *scr = screen(false);
+
+    if (scr)
+		scr->dispose_widget(widget);
+
     m_children.erase(child_it);
 
     widget->dec_ref();
@@ -216,12 +221,16 @@ Window *Widget::window() {
     }
 }
 
-Screen *Widget::screen() {
+Screen *Widget::screen(bool require) {
     Widget *widget = this;
     while (true) {
-        if (!widget)
-            throw std::runtime_error(
-                "Widget:internal error (could not find parent screen)");
+        if (!widget) {
+            if (require)
+				throw std::runtime_error("Widget:internal error (could not find parent screen)");
+			else
+				return nullptr;
+		}
+
         Screen *screen = dynamic_cast<Screen *>(widget);
         if (screen)
             return screen;
