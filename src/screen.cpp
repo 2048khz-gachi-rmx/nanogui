@@ -629,6 +629,10 @@ void Screen::nvg_flush() {
 void Screen::draw_widgets() {
     nvgBeginFrame(m_nvg_context, m_size[0], m_size[1], m_pixel_ratio);
 
+	// generally don't need to set X/Y as they're always 0/0
+	m_visbounds.z() = m_size[0];
+	m_visbounds.w() = m_size[1];
+
     draw(m_nvg_context);
 
     double elapsed = glfwGetTime() - m_last_interaction;

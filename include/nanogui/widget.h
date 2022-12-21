@@ -133,6 +133,10 @@ public:
 		}
 	}
 
+	bool is_noclip() const { return m_novisclip; }
+
+	void set_noclip(bool b) { m_novisclip = b; }
+
 	void invalidate_order() { m_dirty_order = true; }
 
     /// Return the number of child widgets
@@ -281,6 +285,24 @@ protected:
      */
     float icon_scale() const { return m_theme->m_icon_scale * m_icon_extra_scale; }
 	
+	void fill_vis_bounds(const Vector4i& parentBounds, const Vector2i& parentAbsPos);
+
+	// is this widget completely clipped by its' parents?
+	bool is_oob() const {
+		auto par = parent();
+		if (!par) return false; // ??? wtf
+
+		auto* pvb = &par->m_visbounds;
+		auto* pabs = &par->m_abspos;
+
+		return (
+			pabs->x() + m_pos.x() + m_size.x() < pvb->x() ||		// x+w doesn't reach the left of the vis bounds
+			pabs->y() + m_pos.y() + m_size.y() < pvb->y() ||		// y+h doesn't reach the top of the vis bounds
+			pabs->x() + m_pos.x() > pvb->z() ||					// x is further than the right of the vis bounds
+			pabs->y() + m_pos.y() > pvb->w()					// y is further than the bottom of the vis bounds
+		);
+	}
+
 	virtual void reorder_children();
 private:
     /**
@@ -295,6 +317,10 @@ protected:
     ref<Layout> m_layout;
     Vector2i m_pos, m_size, m_fixed_size;
     std::vector<Widget *> m_children;
+
+	Vector4i m_visbounds;	// { x1, y1, x2, y2 }
+	Vector2i m_abspos;		// only supposed to be used inside a Draw method; can be outdated outside of it!
+	bool m_novisclip;
 
 	float m_order;
 	bool m_dirty_order;

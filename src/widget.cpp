@@ -27,7 +27,9 @@ Widget::Widget(Widget *parent)
     : m_parent(nullptr), m_theme(nullptr), m_layout(nullptr),
       m_pos(0), m_size(0), m_fixed_size(0), m_visible(true), m_enabled(true),
       m_focused(false), m_mouse_focus(false), m_tooltip(""), m_font_size(-1.f),
-      m_icon_extra_scale(1.f), m_cursor(Cursor::Arrow), m_order(0), m_dirty_order(false) {
+      m_icon_extra_scale(1.f), m_cursor(Cursor::Arrow),
+	  m_order(0), m_dirty_order(false),
+	  m_visbounds(0, 0, 0, 0), m_abspos(0, 0) {
     if (parent)
         parent->add_child(this);
 }
@@ -178,6 +180,16 @@ void Widget::add_child(int index, Widget * widget) {
     widget->set_theme(m_theme);
 }
 
+void Widget::fill_vis_bounds(const Vector4i& parentBounds, const Vector2i& parentAbsPos) {
+	m_abspos.x() = parentAbsPos.x() + m_pos.x();
+	m_abspos.y() = parentAbsPos.y() + m_pos.y();
+
+	m_visbounds.x() = std::min(parentBounds.x() + std::max(0, m_pos.x()), parentBounds.z());
+	m_visbounds.y() = std::min(parentBounds.y() + std::max(0, m_pos.y()), parentBounds.w());
+	m_visbounds.z() = std::min(m_visbounds.x() + std::max(0, m_size.x()), parentBounds.z());
+	m_visbounds.w() = std::min(m_visbounds.y() + std::max(0, m_size.y()), parentBounds.w());
+}
+
 void Widget::add_child(Widget * widget) {
     add_child(child_count(), widget);
 }
@@ -276,14 +288,29 @@ void Widget::draw(NVGcontext *ctx) {
     for (auto child : m_children) {
         if (!child->visible())
             continue;
+
+		child->fill_vis_bounds(m_visbounds, m_abspos);
+		bool oob = child->is_oob();
+		if (!m_novisclip && oob) { // is OOB and is not noclipped
+			continue;
+		}
+		
+		// if we're OOB, are noclipped and our children aren't, make them noclip *temporarily*
+		bool childUseOurNoclip = oob && !child->m_novisclip;
+
         #if !defined(NANOGUI_SHOW_WIDGET_BOUNDS)
             nvgSave(ctx);
             nvgIntersectScissor(ctx, child->m_pos.x(), child->m_pos.y(),
                                 child->m_size.x(), child->m_size.y());
         #endif
 
+		if (childUseOurNoclip) {
+			child->set_noclip(true);
+		}
         child->draw(ctx);
-
+		if (childUseOurNoclip) {
+			child->set_noclip(false);
+		}
         #if !defined(NANOGUI_SHOW_WIDGET_BOUNDS)
             nvgRestore(ctx);
         #endif
