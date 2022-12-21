@@ -27,7 +27,7 @@ Widget::Widget(Widget *parent)
     : m_parent(nullptr), m_theme(nullptr), m_layout(nullptr),
       m_pos(0), m_size(0), m_fixed_size(0), m_visible(true), m_enabled(true),
       m_focused(false), m_mouse_focus(false), m_tooltip(""), m_font_size(-1.f),
-      m_icon_extra_scale(1.f), m_cursor(Cursor::Arrow) {
+      m_icon_extra_scale(1.f), m_cursor(Cursor::Arrow), m_order(0), m_dirty_order(false) {
     if (parent)
         parent->add_child(this);
 }
@@ -129,6 +129,12 @@ bool Widget::mouse_motion_event(const Vector2i &p, const Vector2i &rel, int butt
     }
 
     return handled;
+}
+
+void Widget::reorder_children() {
+	std::sort(m_children.begin(), m_children.end(), [](Widget* a, Widget* b) {
+		return a->order() < b->order();
+	});
 }
 
 bool Widget::scroll_event(const Vector2i &p, const Vector2f &rel) {
@@ -260,6 +266,11 @@ void Widget::draw(NVGcontext *ctx) {
 
     if (m_children.empty())
         return;
+
+	if (m_dirty_order) {
+		reorder_children();
+		m_dirty_order = false;
+	}
 
     nvgTranslate(ctx, m_pos.x(), m_pos.y());
     for (auto child : m_children) {

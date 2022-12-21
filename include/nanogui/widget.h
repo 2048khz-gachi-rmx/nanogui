@@ -124,6 +124,17 @@ public:
         return visible;
     }
 
+	float order() const { return m_order; }
+
+	void set_order(float to) {
+		m_order = to;
+		if (this->parent()) {
+			this->parent()->invalidate_order();
+		}
+	}
+
+	void invalidate_order() { m_dirty_order = true; }
+
     /// Return the number of child widgets
     int child_count() const { return (int) m_children.size(); }
 
@@ -269,7 +280,8 @@ protected:
      *     strategy may not be appropriate with fonts other than ``entypo.ttf``.
      */
     float icon_scale() const { return m_theme->m_icon_scale * m_icon_extra_scale; }
-
+	
+	virtual void reorder_children();
 private:
     /**
      * Convenience function to share logic between both signatures of
@@ -283,6 +295,9 @@ protected:
     ref<Layout> m_layout;
     Vector2i m_pos, m_size, m_fixed_size;
     std::vector<Widget *> m_children;
+
+	float m_order;
+	bool m_dirty_order;
 
     /**
      * Whether or not this Widget is currently visible.  When a Widget is not
