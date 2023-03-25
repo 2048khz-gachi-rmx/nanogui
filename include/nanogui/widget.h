@@ -159,10 +159,10 @@ public:
     void add_child(Widget *widget);
 
     /// Remove a child widget by index
-    void remove_child_at(int index);
+    virtual void remove_child_at(int index);
 
     /// Remove a child widget by value
-    void remove_child(const Widget *widget);
+    virtual void remove_child(const Widget *widget);
 
     /// Retrieves the child at the specific position
     const Widget* child_at(int index) const { return m_children[(size_t) index]; }
@@ -304,12 +304,8 @@ protected:
 	}
 
 	virtual void reorder_children();
-private:
-    /**
-     * Convenience function to share logic between both signatures of
-     * ``removeChild``.
-     */
-    void removeChildHelper(const std::vector<Widget *>::iterator& child_it);
+	
+    virtual void removeChildHelper(const std::vector<Widget *>::iterator& child_it);
 
 protected:
     Widget *m_parent;
@@ -318,12 +314,27 @@ protected:
     Vector2i m_pos, m_size, m_fixed_size;
     std::vector<Widget *> m_children;
 
+    /*
+     * Used for occlusion logic; widgets that are completely
+     * out of visible bounds will not be painted
+     */
 	Vector4i m_visbounds;	// { x1, y1, x2, y2 }
 	Vector2i m_abspos;		// only supposed to be used inside a Draw method; can be outdated outside of it!
 	bool m_novisclip;
 
+    /*
+     * Widget ordering, used to decide which widgets should be painted first
+     * and which have priority when accepting input over others
+     */
 	float m_order;
 	bool m_dirty_order;
+
+    /*
+     * Used to automatically determine order when one isn't given; widgets created later
+     * are drawn over others (TODO: is this still true?)
+     */
+	int m_widgetnum;
+	int m_totalchildrennum;
 
     /**
      * Whether or not this Widget is currently visible.  When a Widget is not

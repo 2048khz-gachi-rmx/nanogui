@@ -25,11 +25,18 @@ NAMESPACE_BEGIN(nanogui)
 
 Widget::Widget(Widget *parent)
     : m_parent(nullptr), m_theme(nullptr), m_layout(nullptr),
-      m_pos(0), m_size(0), m_fixed_size(0), m_visible(true), m_enabled(true),
-      m_focused(false), m_mouse_focus(false), m_tooltip(""), m_font_size(-1.f),
-      m_icon_extra_scale(1.f), m_cursor(Cursor::Arrow),
-	  m_order(0), m_dirty_order(false),
-	  m_visbounds(0, 0, 0, 0), m_abspos(0, 0) {
+        m_pos(0), m_size(0), m_fixed_size(0),
+        
+        m_visbounds(0, 0, 0, 0), m_abspos(0, 0), m_novisclip(false),
+
+        m_order(0), m_dirty_order(false),
+        m_widgetnum(0), m_totalchildrennum(0),
+
+        m_visible(true), m_enabled(true),
+        m_focused(false), m_mouse_focus(false), 
+        m_tooltip(""), m_font_size(-1.f),
+        m_icon_extra_scale(1.f), m_cursor(Cursor::Arrow)
+      {
     if (parent)
         parent->add_child(this);
 }
@@ -83,19 +90,23 @@ void Widget::perform_layout(NVGcontext *ctx) {
 }
 
 Widget *Widget::find_widget(const Vector2i &p) {
+	const nanogui::Vector2i relPos = p - m_pos;
+
     for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
         Widget *child = *it;
-        if (child->visible() && child->contains(p - m_pos))
-            return child->find_widget(p - m_pos);
+        if (child->visible() && child->contains(relPos))
+            return child->find_widget(relPos);
     }
     return contains(p) ? this : nullptr;
 }
 
 const Widget *Widget::find_widget(const Vector2i &p) const {
+    const nanogui::Vector2i relPos = p - m_pos;
+
     for (auto it = m_children.rbegin(); it != m_children.rend(); ++it) {
         Widget *child = *it;
-        if (child->visible() && child->contains(p - m_pos))
-            return child->find_widget(p - m_pos);
+        if (child->visible() && child->contains(relPos))
+            return child->find_widget(relPos);
     }
     return contains(p) ? this : nullptr;
 }
@@ -135,7 +146,12 @@ bool Widget::mouse_motion_event(const Vector2i &p, const Vector2i &rel, int butt
 
 void Widget::reorder_children() {
 	std::sort(m_children.begin(), m_children.end(), [](Widget* a, Widget* b) {
-		return a->order() < b->order();
+		// [0] = -order, ..., [N] = +order
+		if (a->order() != b->order())
+			return a->order() < b->order();
+
+		// if orders are equivalent, old widget goes first
+		return a->m_widgetnum < b->m_widgetnum;
 	});
 }
 
@@ -175,9 +191,14 @@ bool Widget::keyboard_character_event(unsigned int) {
 void Widget::add_child(int index, Widget * widget) {
     assert(index <= child_count());
     m_children.insert(m_children.begin() + index, widget);
+
     widget->inc_ref();
     widget->set_parent(this);
     widget->set_theme(m_theme);
+
+	widget->m_widgetnum = m_totalchildrennum;
+	m_totalchildrennum++;
+	m_dirty_order = true;
 }
 
 void Widget::fill_vis_bounds(const Vector4i& parentBounds, const Vector2i& parentAbsPos) {
@@ -276,8 +297,9 @@ void Widget::draw(NVGcontext *ctx) {
         nvgStroke(ctx);
     #endif
 
-    if (m_children.empty())
+    if (m_children.empty()) {
         return;
+    }
 
 	if (m_dirty_order) {
 		reorder_children();
@@ -285,7 +307,10 @@ void Widget::draw(NVGcontext *ctx) {
 	}
 
     nvgTranslate(ctx, m_pos.x(), m_pos.y());
-    for (auto child : m_children) {
+    // for (auto child : m_children) {
+
+	for (auto it = m_children.begin(); it != m_children.end(); ++it) {
+		auto child = *it;
         if (!child->visible())
             continue;
 
